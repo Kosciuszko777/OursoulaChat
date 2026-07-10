@@ -1,0 +1,17 @@
+{
+  "name": "OursulaChat",
+  "short_name": "Oursula",
+  "description": "End-to-end encrypted messaging on Nostr. No phone number, no company, no center to seize.",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#f8f8fc",
+  "theme_color": "#3B3B7A",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,13 +1,15 @@
 import { useSeoMeta } from "@unhead/react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
+import { Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const NotFound = () => {
   const location = useLocation();
 
   useSeoMeta({
-    title: "404 - Page Not Found",
-    description: "The page you are looking for could not be found. Return to the home page to continue browsing.",
+    title: "404 — Page Not Found | OursulaChat",
+    description: "The page you are looking for could not be found.",
   });
 
   useEffect(() => {
@@ -18,13 +20,19 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-gray-100">404</h1>
-        <p className="text-xl text-gray-600 dark:text-gray-400 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline">
-          Return to Home
-        </a>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-6">
+      <div className="size-16 rounded-2xl bg-brand-indigo/10 flex items-center justify-center mb-6">
+        <Lock className="size-8 text-brand-indigo" />
+      </div>
+      <h1 className="text-5xl font-display font-bold mb-2">404</h1>
+      <p className="text-lg text-muted-foreground mb-8">This page doesn't exist.</p>
+      <div className="flex gap-3">
+        <Button asChild variant="outline" className="rounded-full">
+          <Link to="/">Home</Link>
+        </Button>
+        <Button asChild className="rounded-full">
+          <Link to="/app">Open app</Link>
+        </Button>
       </div>
     </div>
   );
