@@ -17,6 +17,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useConversations } from '@/hooks/useConversations';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { NewChatDialog } from '@/components/chat/NewChatDialog';
+import { CreateGroupDialog } from '@/components/chat/CreateGroupDialog';
 import { ConversationList } from '@/components/chat/ConversationList';
 import { cn } from '@/lib/utils';
 
@@ -30,9 +31,10 @@ export default function AppShell() {
   const location = useLocation();
   const { conversations, isLoading: isLoadingConversations } = useConversations();
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
 
   const isSettings = location.pathname.startsWith('/app/settings');
-  const isChat = location.pathname.startsWith('/app/chat/');
+  const isChat = location.pathname.startsWith('/app/chat/') || location.pathname.startsWith('/app/group/');
 
   return (
     <div className="h-dvh flex flex-col bg-background text-foreground">
@@ -65,6 +67,7 @@ export default function AppShell() {
             conversations={conversations}
             isLoading={isLoadingConversations}
             onNewChat={() => setNewChatOpen(true)}
+            onNewGroup={() => setNewGroupOpen(true)}
           />
         </aside>
 
@@ -82,6 +85,7 @@ export default function AppShell() {
                   conversations={conversations}
                   isLoading={isLoadingConversations}
                   onNewChat={() => setNewChatOpen(true)}
+                  onNewGroup={() => setNewGroupOpen(true)}
                 />
               </div>
 
@@ -110,6 +114,7 @@ export default function AppShell() {
       </div>
 
       <NewChatDialog isOpen={newChatOpen} onClose={() => setNewChatOpen(false)} />
+      <CreateGroupDialog isOpen={newGroupOpen} onClose={() => setNewGroupOpen(false)} />
     </div>
   );
 }
@@ -120,11 +125,13 @@ function SidebarContent({
   conversations,
   isLoading,
   onNewChat,
+  onNewGroup,
 }: {
   user: ReturnType<typeof useCurrentUser>['user'];
   conversations: ReturnType<typeof useConversations>['conversations'];
   isLoading: boolean;
   onNewChat: () => void;
+  onNewGroup: () => void;
 }) {
   return (
     <>
@@ -181,13 +188,14 @@ function SidebarContent({
           <Settings className="size-4" />
           Settings
         </Link>
-        <div
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground cursor-default"
+        <button
+          type="button"
+          onClick={onNewGroup}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full text-left"
         >
           <Users className="size-4" />
-          Groups
-          <span className="ml-auto text-xs bg-secondary rounded px-1.5 py-0.5">Phase 2</span>
-        </div>
+          New group
+        </button>
       </div>
     </>
   );

@@ -1,11 +1,11 @@
 /**
  * Conversation list — shows all decrypted conversations, sorted by most recent.
- * Each entry shows the other party's avatar/name, last message preview, and time.
+ * Distinguishes 1:1 chats from group chats (different routing, icons, names).
  */
 
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
-import { Lock, Loader2 } from 'lucide-react';
+import { Lock, Loader2, Users } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthor } from '@/hooks/useAuthor';
@@ -20,8 +20,7 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ conversations, currentUserPubkey, isLoading }: ConversationListProps) {
-  const params = useParams<{ npub?: string }>();
-  const activeNpub = params.npub;
+  const location = useLocation();
 
   if (isLoading && conversations.length === 0) {
     return (
@@ -46,19 +45,30 @@ export function ConversationList({ conversations, currentUserPubkey, isLoading }
         </div>
       )}
       {conversations.map((conv) => {
-        // For 1:1 chats, find the other party's pubkey
+        const isGroup = conv.participants.length > 2;
+
+        if (isGroup) {
+          return (
+            <GroupConversationItem
+              key={conv.id}
+              conversation={conv}
+              currentUserPubkey={currentUserPubkey}
+              currentPath={location.pathname}
+            />
+          );
+        }
+
         const otherPubkey = conv.participants.find((pk) => pk !== currentUserPubkey) ?? currentUserPubkey;
         const otherNpub = nip19.npubEncode(otherPubkey);
-        const isActive = activeNpub === otherNpub;
 
         return (
-          <ConversationItem
+          <DirectConversationItem
             key={conv.id}
             conversation={conv}
             otherPubkey={otherPubkey}
             otherNpub={otherNpub}
-            isActive={isActive}
             currentUserPubkey={currentUserPubkey}
+            currentPath={location.pathname}
           />
         );
       })}
@@ -66,18 +76,19 @@ export function ConversationList({ conversations, currentUserPubkey, isLoading }
   );
 }
 
-function ConversationItem({
+/** 1:1 chat item. */
+function DirectConversationItem({
   conversation,
   otherPubkey,
   otherNpub,
-  isActive,
   currentUserPubkey,
+  currentPath,
 }: {
   conversation: Conversation;
   otherPubkey: string;
   otherNpub: string;
-  isActive: boolean;
   currentUserPubkey: string;
+  currentPath: string;
 }) {
   const author = useAuthor(otherPubkey);
   const metadata: NostrMetadata | undefined = author.data?.metadata;
@@ -86,15 +97,15 @@ function ConversationItem({
   const isSentByMe = lastMsg.senderPubkey === currentUserPubkey;
   const preview = isSentByMe ? `You: ${lastMsg.content}` : lastMsg.content;
   const time = formatTime(lastMsg.createdAt);
+  const href = `/app/chat/${otherNpub}`;
+  const isActive = currentPath === href;
 
   return (
     <Link
-      to={`/app/chat/${otherNpub}`}
+      to={href}
       className={cn(
         'flex items-center gap-3 px-3 py-3 rounded-xl transition-colors',
-        isActive
-          ? 'bg-brand-indigo/10 text-foreground'
-          : 'hover:bg-secondary text-foreground',
+        isActive ? 'bg-brand-indigo/10' : 'hover:bg-secondary',
       )}
     >
       <Avatar size="lg" className="flex-none">
@@ -105,6 +116,50 @@ function ConversationItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium text-sm truncate">{displayName}</span>
+          <span className="text-xs text-muted-foreground flex-none">{time}</span>
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <Lock className="size-3 text-brand-indigo flex-none" />
+          <span className="text-xs text-muted-foreground truncate">{preview}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/** Group chat item. */
+function GroupConversationItem({
+  conversation,
+  currentUserPubkey,
+  currentPath,
+}: {
+  conversation: Conversation;
+  currentUserPubkey: string;
+  currentPath: string;
+}) {
+  const groupName = conversation.subject ?? `Group (${conversation.participants.length})`;
+  const lastMsg = conversation.lastMessage;
+  const isSentByMe = lastMsg.senderPubkey === currentUserPubkey;
+  const preview = isSentByMe ? `You: ${lastMsg.content}` : lastMsg.content;
+  const time = formatTime(lastMsg.createdAt);
+  const href = `/app/group/${encodeURIComponent(conversation.id)}`;
+  const isActive = currentPath === href;
+
+  return (
+    <Link
+      to={href}
+      className={cn(
+        'flex items-center gap-3 px-3 py-3 rounded-xl transition-colors',
+        isActive ? 'bg-brand-indigo/10' : 'hover:bg-secondary',
+      )}
+    >
+      <div className="size-10 rounded-full bg-brand-indigo/15 flex items-center justify-center flex-none">
+        <Users className="size-5 text-brand-indigo" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium text-sm truncate">{groupName}</span>
           <span className="text-xs text-muted-foreground flex-none">{time}</span>
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">

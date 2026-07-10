@@ -5,6 +5,7 @@ import Landing from "./pages/Landing";
 import AppShell from "./pages/AppShell";
 import ChatEmpty from "./pages/ChatEmpty";
 import ChatView from "./pages/ChatView";
+import GroupChatView from "./pages/GroupChatView";
 import AppSettings from "./pages/AppSettings";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
@@ -21,6 +22,7 @@ export function AppRouter() {
         <Route path="/app" element={<AppShell />}>
           <Route index element={<ChatEmpty />} />
           <Route path="chat/:npub" element={<ChatView />} />
+          <Route path="group/:id" element={<GroupChatView />} />
           <Route path="settings" element={<AppSettings />} />
         </Route>
 
