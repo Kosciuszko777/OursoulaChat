@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
   MessageCircle,
@@ -7,18 +7,20 @@ import {
   Sun,
   Lock,
   Users,
-  Search,
   PenSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useConversations } from '@/hooks/useConversations';
+import { useConversations, type Conversation } from '@/hooks/useConversations';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { NewChatDialog } from '@/components/chat/NewChatDialog';
 import { CreateGroupDialog } from '@/components/chat/CreateGroupDialog';
 import { ConversationList } from '@/components/chat/ConversationList';
+import { ConversationSearch } from '@/components/chat/ConversationSearch';
+import { Onboarding } from '@/components/chat/Onboarding';
+import { useT } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 /**
@@ -32,9 +34,48 @@ export default function AppShell() {
   const { conversations, isLoading: isLoadingConversations } = useConversations();
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem('oursula:onboarded');
+  });
+  const t = useT();
 
   const isSettings = location.pathname.startsWith('/app/settings');
   const isChat = location.pathname.startsWith('/app/chat/') || location.pathname.startsWith('/app/group/');
+
+  const handleOnboardingComplete = () => {
+    localStorage.setItem('oursula:onboarded', '1');
+    setShowOnboarding(false);
+  };
+
+  // If user completes onboarding via the login flow, mark it done
+  const handleLoginInstead = () => {
+    localStorage.setItem('oursula:onboarded', '1');
+    setShowOnboarding(false);
+  };
+
+  // Show onboarding for first-time users who aren't logged in
+  if (showOnboarding && !user) {
+    return (
+      <div className="h-dvh flex flex-col bg-background text-foreground">
+        <header className="flex-none flex items-center justify-between px-4 py-2.5 border-b bg-card">
+          <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
+            <Lock className="size-4 text-brand-indigo" />
+            <span className="text-sm">{t('app.name')}</span>
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label="Toggle theme"
+            className="rounded-full size-8"
+          >
+            {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          </Button>
+        </header>
+        <Onboarding onComplete={handleOnboardingComplete} onLoginInstead={handleLoginInstead} />
+      </div>
+    );
+  }
 
   return (
     <div className="h-dvh flex flex-col bg-background text-foreground">
@@ -42,7 +83,7 @@ export default function AppShell() {
       <header className="flex-none flex items-center justify-between px-4 py-2.5 border-b bg-card">
         <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
           <Lock className="size-4 text-brand-indigo" />
-          <span className="text-sm">OursulaChat</span>
+          <span className="text-sm">{t('app.name')}</span>
         </Link>
         <div className="flex items-center gap-2">
           <Button
@@ -90,15 +131,15 @@ export default function AppShell() {
               </div>
 
               {/* Mobile bottom tab bar */}
-              <nav className="flex-none flex border-t bg-card">
+              <nav className="flex-none flex border-t bg-card" role="tablist">
                 <MobileTab
                   icon={<MessageCircle className="size-5" />}
-                  label="Chats"
+                  label={t('nav.chats')}
                   active={!isSettings}
                 />
                 <MobileTab
                   icon={<Settings className="size-5" />}
-                  label="Settings"
+                  label={t('nav.settings')}
                   active={isSettings}
                   href="/app/settings"
                 />
@@ -128,25 +169,32 @@ function SidebarContent({
   onNewGroup,
 }: {
   user: ReturnType<typeof useCurrentUser>['user'];
-  conversations: ReturnType<typeof useConversations>['conversations'];
+  conversations: Conversation[];
   isLoading: boolean;
   onNewChat: () => void;
   onNewGroup: () => void;
 }) {
+  const t = useT();
+  const [filteredConvos, setFilteredConvos] = useState<Conversation[] | null>(null);
+  const handleFilter = useCallback((filtered: Conversation[] | null) => {
+    setFilteredConvos(filtered);
+  }, []);
+
+  const displayConvos = filteredConvos ?? conversations;
+
   return (
     <>
       {/* Sidebar header */}
-      <div className="flex-none flex items-center justify-between px-4 py-3">
-        <h2 className="font-semibold text-lg">Chats</h2>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="rounded-full size-8" aria-label="Search">
-            <Search className="size-4" />
-          </Button>
+      <div className="flex-none flex items-center justify-between px-4 py-3 gap-2">
+        {/* Search takes over when open */}
+        <h2 className="font-semibold text-lg flex-none">{t('nav.chats')}</h2>
+        <div className="flex items-center gap-1 flex-1 justify-end">
+          <ConversationSearch conversations={conversations} onFilter={handleFilter} />
           <Button
             variant="ghost"
             size="icon"
             className="rounded-full size-8"
-            aria-label="New chat"
+            aria-label={t('chat.newChat')}
             onClick={onNewChat}
           >
             <PenSquare className="size-4" />
@@ -160,18 +208,24 @@ function SidebarContent({
           {!user ? (
             <EmptyState
               icon={<Lock className="size-8 text-brand-indigo" />}
-              title="Sign in to start chatting"
-              description="Create an identity or log in with your Nostr key. No phone number, no email."
+              title={t('chat.empty.loggedOut.title')}
+              description={t('chat.empty.loggedOut.body')}
             />
-          ) : conversations.length === 0 && !isLoading ? (
+          ) : filteredConvos !== null && filteredConvos.length === 0 ? (
+            <EmptyState
+              icon={<MessageCircle className="size-8 text-muted-foreground" />}
+              title={t('chat.search.noResults')}
+              description=""
+            />
+          ) : displayConvos.length === 0 && !isLoading ? (
             <EmptyState
               icon={<MessageCircle className="size-8 text-brand-indigo" />}
-              title="No conversations yet"
-              description="Start a new chat by tapping the compose button above. You can message anyone whose Nostr public key you have."
+              title={t('chat.empty.noConvos.title')}
+              description={t('chat.empty.noConvos.body')}
             />
           ) : (
             <ConversationList
-              conversations={conversations}
+              conversations={displayConvos}
               currentUserPubkey={user.pubkey}
               isLoading={isLoading}
             />
@@ -186,7 +240,7 @@ function SidebarContent({
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
         >
           <Settings className="size-4" />
-          Settings
+          {t('nav.settings')}
         </Link>
         <button
           type="button"
@@ -194,7 +248,7 @@ function SidebarContent({
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full text-left"
         >
           <Users className="size-4" />
-          New group
+          {t('chat.newGroup')}
         </button>
       </div>
     </>
@@ -216,7 +270,9 @@ function EmptyState({
         {icon}
       </div>
       <h3 className="font-semibold mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">{description}</p>
+      {description && (
+        <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">{description}</p>
+      )}
     </div>
   );
 }
@@ -241,7 +297,7 @@ function MobileTab({
 
   if (href) {
     return (
-      <Link to={href} className={cls} onClick={onClick}>
+      <Link to={href} className={cls} onClick={onClick} role="tab" aria-selected={active}>
         {icon}
         {label}
       </Link>
@@ -249,7 +305,7 @@ function MobileTab({
   }
 
   return (
-    <button type="button" className={cls} onClick={onClick}>
+    <button type="button" className={cls} onClick={onClick} role="tab" aria-selected={active}>
       {icon}
       {label}
     </button>

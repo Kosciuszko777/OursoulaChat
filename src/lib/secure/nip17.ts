@@ -15,7 +15,6 @@
 
 import type { NostrEvent, NostrSigner } from '@nostrify/nostrify';
 import { generateSecretKey, getPublicKey, getEventHash, finalizeEvent } from 'nostr-tools';
-import { bytesToHex } from '@noble/hashes/utils';
 import { nip44 } from 'nostr-tools';
 
 // ─── Types ───
@@ -72,7 +71,7 @@ function randomTimestamp(): number {
  */
 function nip44Encrypt(plaintext: string, senderSecretKey: Uint8Array, recipientPubkey: string): string {
   const conversationKey = nip44.v2.utils.getConversationKey(
-    bytesToHex(senderSecretKey),
+    senderSecretKey,
     recipientPubkey,
   );
   return nip44.v2.encrypt(plaintext, conversationKey);
@@ -83,7 +82,7 @@ function nip44Encrypt(plaintext: string, senderSecretKey: Uint8Array, recipientP
  */
 function nip44DecryptWithKey(ciphertext: string, receiverSecretKey: Uint8Array, senderPubkey: string): string {
   const conversationKey = nip44.v2.utils.getConversationKey(
-    bytesToHex(receiverSecretKey),
+    receiverSecretKey,
     senderPubkey,
   );
   return nip44.v2.decrypt(ciphertext, conversationKey);

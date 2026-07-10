@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Moon,
   Sun,
@@ -7,6 +8,8 @@ import {
   ArrowLeft,
   Globe,
   ExternalLink,
+  Share2,
+  Languages,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -16,6 +19,9 @@ import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { useAppContext } from '@/hooks/useAppContext';
+import { RelayInspector } from '@/components/chat/RelayInspector';
+import { ShareDialog } from '@/components/chat/ShareDialog';
+import { useT, useLocale, type Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import type { Theme } from '@/contexts/AppContext';
 
@@ -23,12 +29,22 @@ export default function AppSettings() {
   const { theme, setTheme } = useTheme();
   const { user, metadata } = useCurrentUser();
   const actions = useLoginActions();
-  const { config } = useAppContext();
+  const { config, updateConfig } = useAppContext();
+  const t = useT();
+  const locale = useLocale();
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const setLocale = (newLocale: Locale) => {
+    updateConfig((c) => ({ ...c, locale: newLocale }));
+    // Also store directly for the I18nContext to read
+    localStorage.setItem('oursula:locale', newLocale);
+    window.location.reload(); // Simple reload to apply locale change
+  };
 
   const themes: { value: Theme; label: string; icon: React.ReactNode }[] = [
-    { value: 'light', label: 'Light', icon: <Sun className="size-4" /> },
-    { value: 'dark', label: 'Dark', icon: <Moon className="size-4" /> },
-    { value: 'system', label: 'System', icon: <Monitor className="size-4" /> },
+    { value: 'light', label: t('settings.theme.light'), icon: <Sun className="size-4" /> },
+    { value: 'dark', label: t('settings.theme.dark'), icon: <Moon className="size-4" /> },
+    { value: 'system', label: t('settings.theme.system'), icon: <Monitor className="size-4" /> },
   ];
 
   return (
@@ -38,22 +54,20 @@ export default function AppSettings() {
         <div className="md:hidden">
           <Link to="/app" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="size-4" />
-            Back
+            {t('nav.back')}
           </Link>
         </div>
 
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t('settings.title')}</h1>
 
         {/* Identity */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="size-4" />
-              Identity
+              {t('settings.identity')}
             </CardTitle>
-            <CardDescription>
-              Your Nostr key is your identity. Nobody can take it from you.
-            </CardDescription>
+            <CardDescription>{t('settings.identity.desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {user ? (
@@ -70,13 +84,11 @@ export default function AppSettings() {
                   className="rounded-full"
                   onClick={() => actions.logout()}
                 >
-                  Log out
+                  {t('settings.logout')}
                 </Button>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                You are not logged in. Tap "Join" in the top bar to create an identity or sign in.
-              </p>
+              <p className="text-sm text-muted-foreground">{t('settings.identity.loggedOut')}</p>
             )}
           </CardContent>
         </Card>
@@ -84,25 +96,54 @@ export default function AppSettings() {
         {/* Theme */}
         <Card>
           <CardHeader>
-            <CardTitle>Appearance</CardTitle>
-            <CardDescription>Choose your preferred theme.</CardDescription>
+            <CardTitle>{t('settings.appearance')}</CardTitle>
+            <CardDescription>{t('settings.appearance.desc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
-              {themes.map((t) => (
+              {themes.map((th) => (
                 <button
-                  key={t.value}
+                  key={th.value}
                   type="button"
-                  onClick={() => setTheme(t.value)}
+                  onClick={() => setTheme(th.value)}
                   className={cn(
                     'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                    theme === t.value
+                    theme === th.value
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
                   )}
                 >
-                  {t.icon}
-                  {t.label}
+                  {th.icon}
+                  {th.label}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Language */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Languages className="size-4" />
+              {t('settings.language')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              {(['en', 'de'] as Locale[]).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => setLocale(l)}
+                  className={cn(
+                    'rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                    locale === l
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+                  )}
+                >
+                  {l === 'en' ? 'English' : 'Deutsch'}
                 </button>
               ))}
             </div>
@@ -114,11 +155,9 @@ export default function AppSettings() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="size-4" />
-              Relays
+              {t('settings.relays')}
             </CardTitle>
-            <CardDescription>
-              Relays carry your encrypted messages. They cannot read the content.
-            </CardDescription>
+            <CardDescription>{t('settings.relays.desc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -138,36 +177,39 @@ export default function AppSettings() {
           </CardContent>
         </Card>
 
+        {/* Relay Inspector */}
+        <RelayInspector />
+
         {/* Privacy info */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Lock className="size-4" />
-              Privacy
+              {t('settings.privacy')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
+            <p>{t('settings.privacy.p1')}</p>
+            <p>{t('settings.privacy.p2')}</p>
             <p>
-              Every message in OursulaChat is encrypted with NIP-44 before it leaves your device.
-              Messages are then sealed and gift-wrapped (NIP-59) so that relays cannot see the
-              content or even who is talking to whom.
-            </p>
-            <p>
-              Your private key never leaves this device. It is stored encrypted at rest and is
-              never transmitted in plaintext.
-            </p>
-            <p>
-              <strong className="text-foreground">There is no way to disable encryption.</strong>{' '}
-              Every chat, every message, always.
+              <strong className="text-foreground">{t('settings.privacy.p3')}</strong>
             </p>
           </CardContent>
         </Card>
 
+        {/* Share */}
+        <Button
+          variant="outline"
+          className="w-full rounded-full"
+          onClick={() => setShareOpen(true)}
+        >
+          <Share2 className="size-4 mr-2" />
+          {t('share.title')}
+        </Button>
+
         {/* About */}
         <div className="text-center space-y-2 pb-8">
-          <p className="text-xs text-muted-foreground">
-            OursulaChat — communication that is simply yours.
-          </p>
+          <p className="text-xs text-muted-foreground">{t('app.tagline')}</p>
           <a
             href="https://shakespeare.diy"
             target="_blank"
@@ -179,6 +221,8 @@ export default function AppSettings() {
           </a>
         </div>
       </div>
+
+      <ShareDialog isOpen={shareOpen} onClose={() => setShareOpen(false)} />
     </ScrollArea>
   );
 }

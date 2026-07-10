@@ -4,8 +4,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createHead, UnheadProvider } from '@unhead/react/client';
 import { InferSeoMetaPlugin } from 'unhead/plugins';
-import { Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 import NostrProvider from '@/components/NostrProvider';
+import { I18nContext, detectLocale, type Locale } from '@/lib/i18n';
 import { NostrSync } from '@/components/NostrSync';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -46,24 +47,32 @@ const defaultConfig: AppConfig = {
 };
 
 export function App() {
+  const locale = useMemo<Locale>(() => {
+    const stored = localStorage.getItem('oursula:locale');
+    if (stored === 'de' || stored === 'en') return stored;
+    return detectLocale();
+  }, []);
+
   return (
-    <UnheadProvider head={head}>
-      <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig}>
-        <QueryClientProvider client={queryClient}>
-          <NostrLoginProvider storageKey='nostr:login'>
-            <NostrProvider>
-              <NostrSync />
-              <TooltipProvider>
-                <Toaster />
-                <Suspense>
-                  <AppRouter />
-                </Suspense>
-              </TooltipProvider>
-            </NostrProvider>
-          </NostrLoginProvider>
-        </QueryClientProvider>
-      </AppProvider>
-    </UnheadProvider>
+    <I18nContext.Provider value={locale}>
+      <UnheadProvider head={head}>
+        <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig}>
+          <QueryClientProvider client={queryClient}>
+            <NostrLoginProvider storageKey='nostr:login'>
+              <NostrProvider>
+                <NostrSync />
+                <TooltipProvider>
+                  <Toaster />
+                  <Suspense>
+                    <AppRouter />
+                  </Suspense>
+                </TooltipProvider>
+              </NostrProvider>
+            </NostrLoginProvider>
+          </QueryClientProvider>
+        </AppProvider>
+      </UnheadProvider>
+    </I18nContext.Provider>
   );
 }
 
