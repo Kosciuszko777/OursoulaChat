@@ -14,7 +14,10 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTheme } from '@/hooks/useTheme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useConversations } from '@/hooks/useConversations';
 import { LoginArea } from '@/components/auth/LoginArea';
+import { NewChatDialog } from '@/components/chat/NewChatDialog';
+import { ConversationList } from '@/components/chat/ConversationList';
 import { cn } from '@/lib/utils';
 
 /**
@@ -25,10 +28,11 @@ export default function AppShell() {
   const { theme, setTheme } = useTheme();
   const { user } = useCurrentUser();
   const location = useLocation();
-  const [mobileTab, setMobileTab] = useState<'chats' | 'settings'>('chats');
+  const { conversations, isLoading: isLoadingConversations } = useConversations();
+  const [newChatOpen, setNewChatOpen] = useState(false);
 
   const isSettings = location.pathname.startsWith('/app/settings');
-  const activeTab = isSettings ? 'settings' : mobileTab;
+  const isChat = location.pathname.startsWith('/app/chat/');
 
   return (
     <div className="h-dvh flex flex-col bg-background text-foreground">
@@ -56,36 +60,47 @@ export default function AppShell() {
       <div className="flex-1 flex min-h-0">
         {/* Sidebar — visible on md+ */}
         <aside className="hidden md:flex flex-col w-80 border-r bg-card">
-          <SidebarContent user={user} />
+          <SidebarContent
+            user={user}
+            conversations={conversations}
+            isLoading={isLoadingConversations}
+            onNewChat={() => setNewChatOpen(true)}
+          />
         </aside>
 
-        {/* Mobile: show either chats or settings based on tab */}
+        {/* Mobile: show conversation list OR the content */}
         <div className="flex-1 flex flex-col md:hidden">
-          {activeTab === 'chats' && !isSettings ? (
-            <div className="flex-1 flex flex-col min-h-0">
-              <SidebarContent user={user} />
-            </div>
-          ) : activeTab === 'settings' || isSettings ? (
-            <div className="flex-1 min-h-0">
+          {isChat || isSettings ? (
+            <div className="flex-1 min-h-0 flex flex-col">
               <Outlet />
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div className="flex-1 flex flex-col min-h-0">
+                <SidebarContent
+                  user={user}
+                  conversations={conversations}
+                  isLoading={isLoadingConversations}
+                  onNewChat={() => setNewChatOpen(true)}
+                />
+              </div>
 
-          {/* Mobile bottom tab bar */}
-          <nav className="flex-none flex border-t bg-card">
-            <MobileTab
-              icon={<MessageCircle className="size-5" />}
-              label="Chats"
-              active={activeTab === 'chats' && !isSettings}
-              onClick={() => setMobileTab('chats')}
-            />
-            <MobileTab
-              icon={<Settings className="size-5" />}
-              label="Settings"
-              active={isSettings || activeTab === 'settings'}
-              href="/app/settings"
-            />
-          </nav>
+              {/* Mobile bottom tab bar */}
+              <nav className="flex-none flex border-t bg-card">
+                <MobileTab
+                  icon={<MessageCircle className="size-5" />}
+                  label="Chats"
+                  active={!isSettings}
+                />
+                <MobileTab
+                  icon={<Settings className="size-5" />}
+                  label="Settings"
+                  active={isSettings}
+                  href="/app/settings"
+                />
+              </nav>
+            </>
+          )}
         </div>
 
         {/* Desktop: content area for child routes */}
@@ -93,12 +108,24 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      <NewChatDialog isOpen={newChatOpen} onClose={() => setNewChatOpen(false)} />
     </div>
   );
 }
 
 /** The conversation list + action buttons shown in the sidebar / mobile main area. */
-function SidebarContent({ user }: { user: ReturnType<typeof useCurrentUser>['user'] }) {
+function SidebarContent({
+  user,
+  conversations,
+  isLoading,
+  onNewChat,
+}: {
+  user: ReturnType<typeof useCurrentUser>['user'];
+  conversations: ReturnType<typeof useConversations>['conversations'];
+  isLoading: boolean;
+  onNewChat: () => void;
+}) {
   return (
     <>
       {/* Sidebar header */}
@@ -108,26 +135,38 @@ function SidebarContent({ user }: { user: ReturnType<typeof useCurrentUser>['use
           <Button variant="ghost" size="icon" className="rounded-full size-8" aria-label="Search">
             <Search className="size-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="rounded-full size-8" aria-label="New chat">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full size-8"
+            aria-label="New chat"
+            onClick={onNewChat}
+          >
             <PenSquare className="size-4" />
           </Button>
         </div>
       </div>
 
-      {/* Conversation list — empty for Phase 0 */}
+      {/* Conversation list */}
       <ScrollArea className="flex-1 min-h-0">
-        <div className="px-4 pb-4">
+        <div className="pb-4">
           {!user ? (
             <EmptyState
               icon={<Lock className="size-8 text-brand-indigo" />}
               title="Sign in to start chatting"
               description="Create an identity or log in with your Nostr key. No phone number, no email."
             />
-          ) : (
+          ) : conversations.length === 0 && !isLoading ? (
             <EmptyState
               icon={<MessageCircle className="size-8 text-brand-indigo" />}
               title="No conversations yet"
               description="Start a new chat by tapping the compose button above. You can message anyone whose Nostr public key you have."
+            />
+          ) : (
+            <ConversationList
+              conversations={conversations}
+              currentUserPubkey={user.pubkey}
+              isLoading={isLoading}
             />
           )}
         </div>
@@ -142,14 +181,13 @@ function SidebarContent({ user }: { user: ReturnType<typeof useCurrentUser>['use
           <Settings className="size-4" />
           Settings
         </Link>
-        <Link
-          to="/app/settings"
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+        <div
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground cursor-default"
         >
           <Users className="size-4" />
           Groups
-          <span className="ml-auto text-xs bg-secondary rounded px-1.5 py-0.5">Soon</span>
-        </Link>
+          <span className="ml-auto text-xs bg-secondary rounded px-1.5 py-0.5">Phase 2</span>
+        </div>
       </div>
     </>
   );

@@ -4,6 +4,7 @@ import { ScrollToTop } from "./components/ScrollToTop";
 import Landing from "./pages/Landing";
 import AppShell from "./pages/AppShell";
 import ChatEmpty from "./pages/ChatEmpty";
+import ChatView from "./pages/ChatView";
 import AppSettings from "./pages/AppSettings";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
@@ -19,6 +20,7 @@ export function AppRouter() {
         {/* App shell with sidebar + content area */}
         <Route path="/app" element={<AppShell />}>
           <Route index element={<ChatEmpty />} />
+          <Route path="chat/:npub" element={<ChatView />} />
           <Route path="settings" element={<AppSettings />} />
         </Route>
 
